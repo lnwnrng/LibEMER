@@ -7,7 +7,7 @@ from data_utils.split import get_split_index, index_to_data_multimodal, merge_to
 
 from utils.args import get_args_parser
 from utils.store import make_output_dir
-from utils.utils import state_log, result_log, setup_seed, sub_result_log
+from utils.utils import state_log, result_log, setup_seed, sub_result_log, make_log_context, split_log
 from Trainer.DCCA_AMTraining import train
 
 import numpy as np
@@ -26,9 +26,9 @@ import torch.nn as nn
 #python DCCA_AM_train.py -model DCCA_AM -use_multimodal -dataset deap -dataset_path data_preprocessed_python -bounds 5 5 -label_used valence -onehot -time_window 2 -sample_length 1 -stride 1 -bio_length 256 -bio_stride 256 -split_type kfold -fold_num 10 -lr 1e-4 -batch_size 30 -epochs 80
 #0.8732/0.0484
 #deap arousal
- 
+
 #seedv
-#python DCCA_AM_train.py -model DCCA_AM -use_multimodal -dataset seedv_de_lds -dataset_path SEEDV -sessions 1 2 3  -onehot  -sample_length 1 -stride 1 -bio_length 1 -bio_stride 1 -split_type kfold -fold_num 3 -fold_shuffle false -lr 1e-3 -batch_size 30 -epochs 100 
+#python DCCA_AM_train.py -model DCCA_AM -use_multimodal -dataset seedv_de_lds -dataset_path SEEDV -sessions 1 2 3  -onehot  -sample_length 1 -stride 1 -bio_length 1 -bio_stride 1 -split_type kfold -fold_num 3 -fold_shuffle false -lr 1e-3 -batch_size 30 -epochs 100
 # 0.7384/0.0777
 
 #seed depend
@@ -101,7 +101,7 @@ def main(args):
 
         for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
             tts = get_split_index(eeg_data_i, label_i, setting)
-            
+
             for ridx, (train_indexes, test_indexes, val_indexes) in enumerate(\
                 zip(tts['train'], tts['test'], tts['val'])):
                 setup_seed(args.seed)
@@ -135,7 +135,7 @@ def main(args):
 
                 train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="minmax")
                 train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="minmax")
-                
+
                 input_size1 =  train_eeg.shape[1]*train_eeg.shape[2]
                 input_size2 = train_bio.shape[1]*train_bio.shape[2]
                 num_classes = train_label.shape[1]
@@ -159,23 +159,25 @@ def main(args):
                 #criterion = nn.MultiMarginLoss(p=1, margin = 10)
                 criterion = nn.CrossEntropyLoss()
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'DCCA_AM')
                 round_metric = train(model = model, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                    optimizer1=optimizer1, optimizer2 = optimizer2, optimizer3=optimizer3, criterion=criterion, output_dir=output_dir, 
-                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs, 
-                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label) 
-                
+                                    optimizer1=optimizer1, optimizer2 = optimizer2, optimizer3=optimizer3, criterion=criterion, output_dir=output_dir,
+                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,
+                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label, log_context=log_context)
+
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
-                
+
 
         if setting.experiment_mode == "sub_dependent":
             sub_result_log(args, subjects_metrics)
         else:
             result_log(args, best_metrics)
 
-    elif setting.dataset.startswith('deap'):  
+    elif setting.dataset.startswith('deap'):
         eeg_data, bio_data, label,eeg_channels, bio_channels, eeg_feature_dim, bio_feature_dim, num_classes = get_data(setting)
 
         #对时域信息求最大值，最小值，均值，方差，标准差，平方和
@@ -200,7 +202,7 @@ def main(args):
 
 
         eeg_data, bio_data, label = merge_to_part_multimodal(eeg_data, new_bio_data, label,setting)
-        
+
         best_metrics =[]
         subjects_metrics = [[]for _ in range(len(eeg_data))]
         for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
@@ -254,16 +256,18 @@ def main(args):
                 optimizer3 = optim.RMSprop(model.parameters(), lr = args.lr, weight_decay=1e-4)
                 criterion = nn.CrossEntropyLoss()
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'DCCA_AM')
                 round_metric = train(model = model, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                    optimizer1=optimizer1, optimizer2 = optimizer2, optimizer3=optimizer3, criterion=criterion, output_dir=output_dir, 
-                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs, 
-                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label) 
-                
+                                    optimizer1=optimizer1, optimizer2 = optimizer2, optimizer3=optimizer3, criterion=criterion, output_dir=output_dir,
+                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,
+                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label, log_context=log_context)
+
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
-            
+
 
         if setting.experiment_mode == "sub_dependent":
             sub_result_log(args, subjects_metrics)

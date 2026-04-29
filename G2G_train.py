@@ -6,7 +6,7 @@ from data_utils.split import get_split_index, index_to_data_multimodal, merge_to
 
 from utils.args import get_args_parser
 from utils.store import make_output_dir
-from utils.utils import state_log, result_log, setup_seed, sub_result_log
+from utils.utils import state_log, result_log, setup_seed, sub_result_log, make_log_context, split_log
 
 import numpy as np
 import torch
@@ -125,12 +125,14 @@ def main(args):
 
                 criterion = nn.CrossEntropyLoss()
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'G2G')
                 round_metric = train(model=model, dataset_train=dataset_train, dataset_val=dataset_val,
                                      dataset_test=dataset_test, device=args.device,
                                      optimizer=optimizer, output_dir=output_dir, metrics=args.metrics,
                                      metric_choose=args.metric_choose, batch_size=args.batch_size, epochs=args.epochs,
-                                     criterion=criterion, test_sub_label=test_sub_label)
+                                     criterion=criterion, test_sub_label=test_sub_label, log_context=log_context)
 
                 best_metrics.append(round_metric)
                 if setting.experiment_mode == 'sub_dependent':
@@ -243,12 +245,14 @@ def main(args):
 
                 criterion = nn.CrossEntropyLoss()
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'G2G')
                 round_metric = train(model=model, dataset_train=dataset_train, dataset_val=dataset_val,
                                      dataset_test=dataset_test, device=args.device,
                                      optimizer=optimizer, output_dir=output_dir, metrics=args.metrics,
                                      metric_choose=args.metric_choose, batch_size=args.batch_size, epochs=args.epochs,
-                                     criterion=criterion, test_sub_label=test_sub_label)
+                                     criterion=criterion, test_sub_label=test_sub_label, log_context=log_context)
 
                 best_metrics.append(round_metric)
                 if setting.experiment_mode == 'sub_dependent':

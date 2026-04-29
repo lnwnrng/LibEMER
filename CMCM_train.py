@@ -6,7 +6,7 @@ from data_utils.split import get_split_index, index_to_data_multimodal, merge_to
 
 from utils.args import get_args_parser
 from utils.store import make_output_dir
-from utils.utils import state_log, result_log, setup_seed, sub_result_log
+from utils.utils import state_log, result_log, setup_seed, sub_result_log, make_log_context, split_log
 
 import numpy as np
 import torch
@@ -82,17 +82,17 @@ def main(args):
     device  = torch.device(args.device)
     assert setting.use_multimodal == True, 'You do not use multimodal data, please set use_multimodal to True'
 
-    if setting.dataset.startswith('seed'): 
+    if setting.dataset.startswith('seed'):
         all_eeg, all_bio, all_label,eeg_channels, bio_channels, eeg_feature_dim, bio_feature_dim, num_classes = get_data(setting)
         eeg_data, bio_data, label = merge_to_part_multimodal(all_eeg, all_bio, all_label,setting)
         print(len(eeg_data))
         best_metrics = []
         subjects_metrics = [[]for _ in range(len(eeg_data))]
         print(len(subjects_metrics))
-        
+
         for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
             tts = get_split_index(eeg_data_i, label_i, setting)
-            
+
             for ridx, (train_indexes, test_indexes, val_indexes) in enumerate(\
                 zip(tts['train'], tts['test'], tts['val'])):
                 setup_seed(args.seed)
@@ -127,7 +127,7 @@ def main(args):
                 val_eeg = val_eeg.reshape(val_eeg.shape[0], val_eeg.shape[1], -1)
                 test_eeg = test_eeg.reshape(test_eeg.shape[0], test_eeg.shape[1], -1)
 
-                
+
                 train_bio = train_bio.reshape(train_bio.shape[0], train_bio.shape[1], -1)
                 val_bio = val_bio.reshape(val_bio.shape[0], val_bio.shape[1], -1)
                 test_bio = test_bio.reshape(test_bio.shape[0], test_bio.shape[1], -1)
@@ -138,10 +138,10 @@ def main(args):
                 embed_dim = 1024
                 window_size =7
                 num_heads = 8
-                
+
 
                 model = Model['CMCM'](eeg_input_dim=eeg_input_dim, bio_input_dim=bio_input_dim, seq_len=seq_len, embed_dim=embed_dim, window_size=window_size, num_heads=num_heads, num_classes=num_classes)
-                
+
                 dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio), torch.Tensor(train_label))
                 dataset_val = torch.utils.data.TensorDataset(torch.Tensor(val_eeg), torch.Tensor(val_bio), torch.Tensor(val_label))
                 dataset_test = torch.utils.data.TensorDataset(torch.Tensor(test_eeg), torch.Tensor(test_bio), torch.Tensor(test_label))
@@ -150,16 +150,18 @@ def main(args):
                 #criterion = nn.MultiMarginLoss(p=1, margin = 10)
                 criterion = nn.CrossEntropyLoss()
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'CMCM')
                 round_metric = train(model = model, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                    optimizer=optimizer, criterion=criterion, output_dir=output_dir, 
-                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs, 
-                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label) 
-                
+                                    optimizer=optimizer, criterion=criterion, output_dir=output_dir,
+                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,
+                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label, log_context=log_context)
+
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
-            
+
 
         if setting.experiment_mode == "sub_dependent":
             sub_result_log(args, subjects_metrics)
@@ -192,7 +194,7 @@ def main(args):
 
 
         eeg_data, bio_data, label = merge_to_part_multimodal(eeg_data, bio_data, label,setting)
-        
+
         best_metrics =[]
         subjects_metrics = [[]for _ in range(len(eeg_data))]
         for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
@@ -243,7 +245,7 @@ def main(args):
                 embed_dim = 1024
                 window_size =7
                 num_heads = 8
-                
+
 
                 model = Model['CMCM'](eeg_input_dim=eeg_input_dim, bio_input_dim=bio_input_dim, seq_len=seq_len, embed_dim=embed_dim, window_size=window_size, num_heads=num_heads, num_classes=num_classes)
                 dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio), torch.Tensor(train_label))
@@ -254,16 +256,18 @@ def main(args):
                 #criterion = nn.MultiMarginLoss(p=1, margin = 10)
                 criterion = nn.CrossEntropyLoss()
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'CMCM')
                 round_metric = train(model = model, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                    optimizer=optimizer, criterion=criterion, output_dir=output_dir, 
-                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs, 
-                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label) 
-                
+                                    optimizer=optimizer, criterion=criterion, output_dir=output_dir,
+                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,
+                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label, log_context=log_context)
+
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
-            
+
 
         if setting.experiment_mode == "sub_dependent":
             sub_result_log(args, subjects_metrics)

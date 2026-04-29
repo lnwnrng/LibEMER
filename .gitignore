@@ -1,0 +1,59 @@
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local configuration
+.env
+.env.*
+*.local
+
+# Data and preprocessing outputs
+data/
+dataset/
+datasets/
+data_processed/
+processed/
+preprocessed/
+*.mat
+*.npy
+*.npz
+*.pkl
+*.pickle
+
+# Experiment logs, results, and checkpoints
+log/
+logs/
+result/
+results/
+runs/
+outputs/
+checkpoints/
+training_history.csv
+*.log
+*.pth
+*.pt
+*.ckpt
+
+# Notebook checkpoints
+.ipynb_checkpoints/

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from utils.metric import Metric, SubMetric
 from utils.store import make_output_dir
+from utils.experiment_logger import ExperimentLogger, get_current_lr
 def save_state(output_dir, model, optimizer1,optimizer2,optimizer3, epoch, r_idx='last', rr_idx='last', metric=None, state='best'):
     # compatibility
     if type(output_dir) is argparse.Namespace:
@@ -38,7 +39,7 @@ def save_state(output_dir, model, optimizer1,optimizer2,optimizer3, epoch, r_idx
     torch.save(save, checkpoint_path)
     print(f"save model to {checkpoint_path}")
 def train(model,dataset_train, dataset_val, dataset_test, device, output_dir='result/', metrics= None, metric_choose = None, optimizer1 = None, optimizer2= None,
-          optimizer3=None, scheduler=None,batch_size = 16, epochs=40, criterion = None, loss_func = None, loss_param= None,test_sub_label = None):
+          optimizer3=None, scheduler=None,batch_size = 16, epochs=40, criterion = None, loss_func = None, loss_param= None,test_sub_label = None, log_context=None):
     if metrics is None:
         metrics=['acc']
     if metric_choose is None:
@@ -67,6 +68,7 @@ def train(model,dataset_train, dataset_val, dataset_test, device, output_dir='re
     ) if test_sub_label is not None else None
 
     model = model.to(device)
+    logger = ExperimentLogger(output_dir, log_context)
 
     best_metric = {s:0. for s in metrics}
 
@@ -109,12 +111,15 @@ def train(model,dataset_train, dataset_val, dataset_test, device, output_dir='re
             optimizer3.step()
         if scheduler is not None:
             scheduler.step()
-        print('\033[32m train state:'+metric.value())
+        train_metrics = metric.to_dict()
         metric_value = evaluate(model, data_loader_val, device, metrics, criterion, loss_func, loss_param)
+        improved_metrics = []
         for m in metrics:
             if metric_value[m] > best_metric[m]:
                 best_metric[m] = metric_value[m]
+                improved_metrics.append(m)
                 save_state(output_dir, model, optimizer1,optimizer2, optimizer3,epoch, metric=m, state='best')
+        logger.log_epoch(epoch + 1, epochs, get_current_lr(optimizer1, optimizer2, optimizer3), train_metrics, metric_value, best_metric, improved_metrics)
         
         if metric_value[metric_choose] == 1:
             break
@@ -124,9 +129,7 @@ def train(model,dataset_train, dataset_val, dataset_test, device, output_dir='re
         metric_value = sub_evaluate(model, data_loader_test, test_sub_label_loader, device, metrics, criterion, loss_func, loss_param)
     else:
         metric_value = evaluate(model, data_loader_test, device, metrics, criterion, loss_func, loss_param)
-    for m in metrics:
-        print(f'best_val_{m}: {best_metric[m]:.2f}')
-        print(f'best_test_{m}: {metric_value[m]:.2f}')
+    logger.log_final(metric_value, best_metric, metrics)
 
     return metric_value
 
@@ -148,8 +151,7 @@ def evaluate(model, data_loader, device, metrics, criterion, loss_func, loss_par
         loss = criterion(prediction, labels) + (0 if loss_func is None else loss_func(loss_param))
         metric.update(torch.argmax(prediction, dim=1), labels, loss.item())
 
-    print('\033[34m eval state:' + metric.value())
-    return metric.values
+    return metric.to_dict()
 
 @torch.no_grad()
 def sub_evaluate(model, data_loader, sub_labels, device, metrics, criterion, loss_func, loss_param):
@@ -169,5 +171,4 @@ def sub_evaluate(model, data_loader, sub_labels, device, metrics, criterion, los
 
         metric.update(torch.argmax(prediction, dim =1),labels, sub_label, loss.item())
     
-    print('\033[34m eval state:' + metric.value())
-    return metric.values
+    return metric.to_dict()

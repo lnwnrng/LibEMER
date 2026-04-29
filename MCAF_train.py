@@ -7,7 +7,7 @@ from data_utils.split import get_split_index, index_to_data_multimodal, merge_to
 
 from utils.args import get_args_parser
 from utils.store import make_output_dir
-from utils.utils import state_log, result_log, setup_seed, sub_result_log
+from utils.utils import state_log, result_log, setup_seed, sub_result_log, make_log_context, split_log
 from models.MCAF import MCAF
 from Trainer.MCAFTraining import train
 
@@ -67,22 +67,22 @@ def main(args):
         setting = preset_setting[args.setting](args)
     else:
         setting = set_setting_by_args(args)
-    setup_seed(args.seed) 
+    setup_seed(args.seed)
     device = torch.device(args.device)
-    
+
     assert setting.use_multimodal == True, 'You do not use multimodal data, please set use_multimodal to True'
-    
+
     # 加载EEG和EOG数据
     all_eeg, all_bio, all_label,eeg_channels, bio_channels, eeg_feature_dim, bio_feature_dim, num_classes = get_data(setting)
     # eeg_data：[3, 12, 15, 58, 62, 5] bio_data：[3, 12, 15, 58, 1, 33]
     # session, subject, trail, channel, original_data
     eeg_data, bio_data, label = merge_to_part_multimodal(all_eeg, all_bio, all_label,setting)
-    
+
     # len(eeg_data) 36
 
     best_metrics = []
     subjects_metrics = [[]for _ in range(len(eeg_data))]
-    
+
     # len(subjects_metrics) 36
     eeg_channels = 62
     eog_channels = 1
@@ -97,7 +97,7 @@ def main(args):
 
     for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
         tts = get_split_index(eeg_data_i, label_i, setting)
-            
+
         for ridx, (train_indexes, test_indexes, val_indexes) in enumerate(\
             zip(tts['train'], tts['test'], tts['val'])):
             setup_seed(args.seed)
@@ -116,7 +116,7 @@ def main(args):
                 val_eeg = test_eeg
                 val_bio = test_bio
                 val_label = test_label
-                   
+
             model = Model['MCAF'](
                 num_classes=num_classes,
                 eeg_channels=eeg_channels,  # EEG通道数
@@ -138,15 +138,17 @@ def main(args):
             optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-2)
             criterion = nn.CrossEntropyLoss()
 
+            log_context = make_log_context(args, setting, rridx, ridx)
+            split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
             output_dir = make_output_dir(args, 'MCAF')
             round_metric = train(model = model, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                optimizer=optimizer, criterion=criterion, output_dir=output_dir, 
-                                metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs) 
-                
+                                optimizer=optimizer, criterion=criterion, output_dir=output_dir,
+                                metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs, log_context=log_context)
+
             best_metrics.append(round_metric)
             if setting.experiment_mode =='sub_dependent':
                 subjects_metrics[rridx].append(round_metric)
-                         
+
     if setting.experiment_mode == "sub_dependent":
         sub_result_log(args, subjects_metrics)
     else:
@@ -163,17 +165,17 @@ def main(args):
     device  = torch.device(args.device)
     assert setting.use_multimodal == True, 'You do not use multimodal data, please set use_multimodal to True'
 
-    if setting.dataset.startswith('seed'): 
+    if setting.dataset.startswith('seed'):
         all_eeg, all_bio, all_label,eeg_channels, bio_channels, eeg_feature_dim, bio_feature_dim, num_classes = get_data(setting)
         eeg_data, bio_data, label = merge_to_part_multimodal(all_eeg, all_bio, all_label,setting)
         #print(len(eeg_data))
         best_metrics = []
         subjects_metrics = [[]for _ in range(len(eeg_data))]
         #print(len(subjects_metrics))
-        
+
         for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
             tts = get_split_index(eeg_data_i, label_i, setting)
-            
+
             for ridx, (train_indexes, test_indexes, val_indexes) in enumerate(\
                 zip(tts['train'], tts['test'], tts['val'])):
                 setup_seed(args.seed)
@@ -203,10 +205,10 @@ def main(args):
                     val_eeg = test_eeg
                     val_bio = test_bio
                     val_label = test_label
-                
+
                 train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
                 train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
-                
+
                 seq_len_eeg = train_eeg.shape[-1]
                 seq_len_eog = train_bio.shape[-1]
                 eeg_channels = train_eeg.shape[-2]
@@ -215,7 +217,7 @@ def main(args):
                 nhead = 4
                 num_layers = 2
                 eeg_dropout_rate = 0.6 #0.7
-                bio_dropout_rate = 0.6 #0.7               
+                bio_dropout_rate = 0.6 #0.7
 
                 model = Model['MCAF'](num_classes=num_classes, eeg_channels=eeg_channels, eog_channels=eog_channels, seq_len_eeg=seq_len_eeg, seq_len_eog=seq_len_eog, d_model=d_model, nhead=nhead, num_layers=num_layers)
                 pretrain_dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio))
@@ -228,21 +230,23 @@ def main(args):
                 optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-2)
                 criterion = nn.CrossEntropyLoss()
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'MCAF')
                 round_metric = train(model = model, dataset_pretrain=dataset_pretrain, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                    optimizer=optimizer, criterion=criterion, output_dir=output_dir, 
-                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,test_sub_label=test_sub_label) 
-                
-                
+                                    optimizer=optimizer, criterion=criterion, output_dir=output_dir,
+                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,test_sub_label=test_sub_label, log_context=log_context)
+
+
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
-                    
+
         if setting.experiment_mode == "sub_dependent":
             sub_result_log(args, subjects_metrics)
         else:
-            result_log(args, best_metrics) 
-                
+            result_log(args, best_metrics)
+
     elif setting.dataset.startswith('deap'):
         eeg_data, bio_data, label,eeg_channels, bio_channels, eeg_feature_dim, bio_feature_dim, num_classes = get_data(setting)
         sample_rate = 128
@@ -272,7 +276,7 @@ def main(args):
 
 
         eeg_data, bio_data, label = merge_to_part_multimodal(eeg_data, new_bio_data, label,setting)
-        
+
         best_metrics =[]
         subjects_metrics = [[]for _ in range(len(eeg_data))]
         for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
@@ -317,7 +321,7 @@ def main(args):
                 nhead = 4
                 num_layers = 2
                 eeg_dropout_rate = 0.6 #0.7
-                bio_dropout_rate = 0.6 #0.7               
+                bio_dropout_rate = 0.6 #0.7
 
                 model = Model['MCAF'](num_classes=num_classes, eeg_channels=eeg_channels, eog_channels=eog_channels, seq_len_eeg=seq_len_eeg, seq_len_eog=seq_len_eog, d_model=d_model, nhead=nhead, num_layers=num_layers)
                 pretrain_dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio))
@@ -330,20 +334,22 @@ def main(args):
                 optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-2)
                 criterion = nn.CrossEntropyLoss()
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'MCAF')
                 round_metric = train(model = model, dataset_pretrain=dataset_pretrain, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                    optimizer=optimizer, criterion=criterion, output_dir=output_dir, 
-                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,test_sub_label=test_sub_label) 
-                
-                
+                                    optimizer=optimizer, criterion=criterion, output_dir=output_dir,
+                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,test_sub_label=test_sub_label, log_context=log_context)
+
+
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
-                    
+
         if setting.experiment_mode == "sub_dependent":
             sub_result_log(args, subjects_metrics)
         else:
-            result_log(args, best_metrics) 
+            result_log(args, best_metrics)
 
 if __name__ == '__main__':
     args = get_args_parser().parse_args()

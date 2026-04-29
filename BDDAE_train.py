@@ -7,7 +7,7 @@ from data_utils.split import get_split_index, index_to_data_multimodal, merge_to
 
 from utils.args import get_args_parser
 from utils.store import make_output_dir
-from utils.utils import state_log, result_log, setup_seed, sub_result_log
+from utils.utils import state_log, result_log, setup_seed, sub_result_log, make_log_context, split_log
 from Trainer.BDDAETraining import train
 
 import numpy as np
@@ -45,7 +45,7 @@ import torch.nn as nn
 
 #deapv indep
 #CUDA_VISIBLE_DEVICES=2 nohup python BDDAE_train.py -model BDDAE -use_multimodal -metrics 'acc' 'macro-f1' -metric_choose 'macro-f1' -setting deap_multimodal_sub_independent_train_val_test_setting -dataset_path /data1/cxx/data/data_preprocessed_python/data_preprocessed_python -dataset deap -time_window 1 -feature_type de_lds -bio_length 128 -bio_stride 128 -bounds 5 5 -label_used valence -seed 2025 -onehot -batch_size 32 -epochs 200 -lr 1e-4 >/data1/cxx/BDDAE/deapv_independent_train_val_test_lr1e-4.log
-#ALLRound Mean and Std of acc : 0.5583/0.0516 
+#ALLRound Mean and Std of acc : 0.5583/0.0516
 #ALLRound Mean and Std of macro-f1 : 0.3577/0.0195
 
 #deapa depend
@@ -76,7 +76,7 @@ def main(args):
 
     device  = torch.device(args.device)
     assert setting.use_multimodal == True, 'You do not use multimodal data, please set use_multimodal to True'
-    if setting.dataset.startswith('seed'): 
+    if setting.dataset.startswith('seed'):
         all_eeg, all_bio, all_label,eeg_channels, bio_channels, eeg_feature_dim, bio_feature_dim, num_classes = get_data(setting)
         eeg_data, bio_data, label = merge_to_part_multimodal(all_eeg, all_bio, all_label,setting)
         print(len(eeg_data))
@@ -87,12 +87,12 @@ def main(args):
         bio_dim = bio_channels * bio_feature_dim
         h_eeg_dim = 128
         h_bio_dim = 32
-        joint_dim = 128 
-        eeg_dropout_rate = 0.5 
-        bio_dropout_rate = 0.5 
+        joint_dim = 128
+        eeg_dropout_rate = 0.5
+        bio_dropout_rate = 0.5
         for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
             tts = get_split_index(eeg_data_i, label_i, setting)
-            
+
             for ridx, (train_indexes, test_indexes, val_indexes) in enumerate(\
                 zip(tts['train'], tts['test'], tts['val'])):
                 setup_seed(args.seed)
@@ -125,7 +125,7 @@ def main(args):
 
                 train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="minmax")
                 train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="minmax")
-                   
+
                 model = Model['BDDAE'](eeg_dim, bio_dim, h_eeg_dim,h_bio_dim,joint_dim,eeg_dropout_rate,bio_dropout_rate, num_classes)
                 pretrain_dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio))
                 pretrain_dataset_val = torch.utils.data.TensorDataset(torch.Tensor(val_eeg), torch.Tensor(val_bio))
@@ -133,36 +133,38 @@ def main(args):
                 dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio), torch.Tensor(train_label))
                 dataset_val = torch.utils.data.TensorDataset(torch.Tensor(val_eeg), torch.Tensor(val_bio), torch.Tensor(val_label))
                 dataset_test = torch.utils.data.TensorDataset(torch.Tensor(test_eeg), torch.Tensor(test_bio), torch.Tensor(test_label))
-                
+
                 pretrain_optimizer = optim.AdamW(model.encoder_parameters(), lr=args.lr)
                 finetune_optimizer_param_groups = [
                     {'params': model.encoder_parameters(), 'lr': args.lr / 100}, # 编码器使用1%的学习率
-                    {'params': model.classifier_parameters(), 'lr': args.lr}      # 分类器使用100%的学习率 
+                    {'params': model.classifier_parameters(), 'lr': args.lr}      # 分类器使用100%的学习率
                 ]
                 finetune_optimizer = optim.AdamW(finetune_optimizer_param_groups, weight_decay = 1e-3)
-            
+
                 recon_criterion = nn.MSELoss()
                 class_criterion = nn.MultiMarginLoss(p=1, margin = 1)
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'BDDAE')
                 round_metric = train(model = model, dataset_pretrain=dataset_pretrain,dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                    pretrain_optimizer=pretrain_optimizer, finetune_optimizer=finetune_optimizer,recon_criterion=recon_criterion, class_criterion=class_criterion, output_dir=output_dir, 
-                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs, 
-                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label) 
-                
+                                    pretrain_optimizer=pretrain_optimizer, finetune_optimizer=finetune_optimizer,recon_criterion=recon_criterion, class_criterion=class_criterion, output_dir=output_dir,
+                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,
+                                    loss_func=None, loss_param= None,test_sub_label=test_sub_label, log_context=log_context)
+
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
-                    
+
 
         if setting.experiment_mode == "sub_dependent":
             sub_result_log(args, subjects_metrics)
         else:
-            result_log(args, best_metrics) 
+            result_log(args, best_metrics)
 
 
 
-    else:  
+    else:
         eeg_data, bio_data, label,eeg_channels, bio_channels, eeg_feature_dim, bio_feature_dim, num_classes = get_data(setting)
 
         #对时域信息求最大值，最小值，均值，方差，标准差，平方和
@@ -188,7 +190,7 @@ def main(args):
 
 
         eeg_data, bio_data, label = merge_to_part_multimodal(eeg_data, new_bio_data, label,setting)
-        
+
         best_metrics =[]
         subjects_metrics = [[]for _ in range(len(eeg_data))]
         eeg_dim =  eeg_channels * eeg_feature_dim
@@ -197,7 +199,7 @@ def main(args):
         h_bio_dim = 32
         joint_dim = 128
         eeg_dropout_rate = 0.5
-        bio_dropout_rate = 0.5 
+        bio_dropout_rate = 0.5
         for rridx, (eeg_data_i, bio_data_i, label_i) in enumerate(zip(eeg_data, bio_data, label)):
             tts = get_split_index(eeg_data_i, label_i, setting)
             for ridx,(train_indexes, test_indexes, val_indexes)  in enumerate(zip(tts['train'], tts['test'], tts['val'])):
@@ -218,7 +220,7 @@ def main(args):
                         test_sub_label.extend([i+1 for j in range(test_sub_count)])
                     test_sub_label = np.array(test_sub_label)
                 print(test_sub_label)
-                
+
                 train_eeg, train_bio,train_label, val_eeg,val_bio,val_label, test_eeg,test_bio, test_label =\
                     index_to_data_multimodal(eeg_data_i, bio_data_i, label_i,train_indexes,test_indexes,val_indexes,keep_dim=args.keep_dim)
                 print(f'train_eeg_data shape:{train_eeg.shape}, train_bio_data shape:{train_bio.shape}, train_label shape:{train_label.shape}')
@@ -228,7 +230,7 @@ def main(args):
                     val_eeg = test_eeg
                     val_bio = test_bio
                     val_label = test_label
-                
+
                 train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="minmax")
                 train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="minmax")
 
@@ -239,27 +241,29 @@ def main(args):
                 dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio), torch.Tensor(train_label))
                 dataset_val = torch.utils.data.TensorDataset(torch.Tensor(val_eeg), torch.Tensor(val_bio), torch.Tensor(val_label))
                 dataset_test = torch.utils.data.TensorDataset(torch.Tensor(test_eeg), torch.Tensor(test_bio), torch.Tensor(test_label))
-                
+
                 pretrain_optimizer = optim.AdamW(model.encoder_parameters(), lr=args.lr)
                 finetune_optimizer_param_groups = [
                     {'params': model.encoder_parameters(), 'lr': args.lr / 100.0}, # 编码器使用1%的学习率
                     {'params': model.classifier_parameters(), 'lr': args.lr}      # 分类器使用100%的学习率
                 ]
                 finetune_optimizer = optim.AdamW(finetune_optimizer_param_groups, weight_decay = 1e-3)
-            
+
                 recon_criterion = nn.MSELoss()
                 class_criterion = nn.MultiMarginLoss(p=1, margin = 1)
 
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, 'BDDAE')
                 round_metric = train(model = model, dataset_pretrain=dataset_pretrain,dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device = args.device,
-                                    pretrain_optimizer=pretrain_optimizer, finetune_optimizer=finetune_optimizer,recon_criterion=recon_criterion, class_criterion=class_criterion, output_dir=output_dir, 
-                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs, 
-                                    loss_func=None, loss_param= None, test_sub_label = test_sub_label)
-                
+                                    pretrain_optimizer=pretrain_optimizer, finetune_optimizer=finetune_optimizer,recon_criterion=recon_criterion, class_criterion=class_criterion, output_dir=output_dir,
+                                    metrics = args.metrics, metric_choose=args.metric_choose,batch_size=args.batch_size, epochs = args.epochs,
+                                    loss_func=None, loss_param= None, test_sub_label = test_sub_label, log_context=log_context)
+
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
-            
+
 
         if setting.experiment_mode == "sub_dependent":
             sub_result_log(args, subjects_metrics)

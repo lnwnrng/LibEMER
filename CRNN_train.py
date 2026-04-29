@@ -8,7 +8,7 @@ from data_utils.constants.deap import DEAP_CHANNEL_NAME, DEAP_2D_GRID_LOC
 
 from utils.args import get_args_parser
 from utils.store import make_output_dir
-from utils.utils import state_log, result_log, setup_seed, sub_result_log
+from utils.utils import state_log, result_log, setup_seed, sub_result_log, make_log_context, split_log
 
 from models.CRNN import CRNN
 from Trainer.CRNNTraining import train
@@ -152,11 +152,13 @@ def main(args):
                 optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4, eps=1e-4)
                 criterion = nn.CrossEntropyLoss()
                 loss_func = criterion
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, "CRNN")
                 #train(model, dataset_train, dataset_val, dataset_test, device, output_dir="result/", metrics=None, metric_choose=None, optimizer=None, scheduler=None, batch_size=16, epochs=40, criterion=None)
                 round_metric = train(model=model, dataset_pretrain=dataset_pretrain, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device=device,
                                     output_dir=output_dir, metrics=args.metrics, metric_choose=args.metric_choose, optimizer=optimizer,scheduler=None, 
-                                    batch_size=args.batch_size, epochs=args.epochs, criterion=criterion,test_sub_label=test_sub_label)
+                                    batch_size=args.batch_size, epochs=args.epochs, criterion=criterion,test_sub_label=test_sub_label, log_context=log_context)
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)
@@ -256,11 +258,13 @@ def main(args):
                 optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4, eps=1e-4)
                 criterion = nn.CrossEntropyLoss()
                 loss_func = criterion
+                log_context = make_log_context(args, setting, rridx, ridx)
+                split_log(train_indexes=train_indexes, test_indexes=test_indexes, val_indexes=val_indexes, test_sub_label=test_sub_label, context=log_context)
                 output_dir = make_output_dir(args, "CRNN")
                 #train(model, dataset_train, dataset_val, dataset_test, device, output_dir="result/", metrics=None, metric_choose=None, optimizer=None, scheduler=None, batch_size=16, epochs=40, criterion=None)
                 round_metric = train(model=model, dataset_pretrain=dataset_pretrain, dataset_train=dataset_train, dataset_val=dataset_val, dataset_test=dataset_test, device=device,
                                     output_dir=output_dir, metrics=args.metrics, metric_choose=args.metric_choose, optimizer=optimizer,scheduler=None, 
-                                    batch_size=args.batch_size, epochs=args.epochs, criterion=criterion,test_sub_label=test_sub_label)
+                                    batch_size=args.batch_size, epochs=args.epochs, criterion=criterion,test_sub_label=test_sub_label, log_context=log_context)
                 best_metrics.append(round_metric)
                 if setting.experiment_mode =='sub_dependent':
                     subjects_metrics[rridx].append(round_metric)

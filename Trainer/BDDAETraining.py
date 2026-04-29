@@ -8,6 +8,7 @@ from itertools import cycle
 
 from utils.metric import Metric, SubMetric
 from utils.store import save_state
+from utils.experiment_logger import ExperimentLogger, get_current_lr
 
 class LossMetric:
     def __init__(self):
@@ -29,8 +30,15 @@ class LossMetric:
         
         out = f"loss:{func['loss']():.3f}"
         return out
+
+    def to_dict(self):
+        if len(self.losses) == 0:
+            return {}
+        return {"loss": self.loss()}
+
+
 def train(model, dataset_pretrain,dataset_train, dataset_val, dataset_test, device, output_dir='result/', metrics= None, metric_choose = None, pretrain_optimizer = None, finetune_optimizer= None, scheduler=None,batch_size = 16, epochs=40, 
-          recon_criterion = None, class_criterion = None, loss_func = None, loss_param= None, test_sub_label = None ):
+          recon_criterion = None, class_criterion = None, loss_func = None, loss_param= None, test_sub_label = None, log_context=None ):
     if metrics is None:
         metrics=['acc']
     if metric_choose is None:
@@ -52,6 +60,7 @@ def train(model, dataset_pretrain,dataset_train, dataset_val, dataset_test, devi
         test_sub_label, sampler=sampler_test, batch_size=batch_size, num_workers=4
     ) if test_sub_label is not None else None
     model = model.to(device)
+    logger = ExperimentLogger(output_dir, log_context)
 
     best_metric = {s:0. for s in metrics}
     best_loss = 0
@@ -90,11 +99,14 @@ def train(model, dataset_pretrain,dataset_train, dataset_val, dataset_test, devi
 
         if scheduler is not None:
             scheduler.step()
-        print('\033[32m train state:'+lossmetric.value())
+        train_metrics = lossmetric.to_dict()
         loss_value = pretrain_evaluate(model, data_loader_val, device, recon_criterion, loss_func, loss_param)
-        if epoch == 0 or loss_value < best_loss:
-            best_loss = loss_value
+        improved_metrics = []
+        if epoch == 0 or loss_value["loss"] < best_loss:
+            best_loss = loss_value["loss"]
+            improved_metrics.append("loss")
             save_state(output_dir, model, pretrain_optimizer, epoch, metric='pretrainloss', state='best')
+        logger.log_epoch(epoch + 1, pretrain_epochs, get_current_lr(pretrain_optimizer), train_metrics, loss_value, {"loss": best_loss}, improved_metrics, stage="pretrain")
    
     model.load_state_dict(torch.load(f'{output_dir}/checkpoint-bestpretrainloss')['model'])
     print('-----Finetuning-----')
@@ -123,12 +135,15 @@ def train(model, dataset_pretrain,dataset_train, dataset_val, dataset_test, devi
             finetune_optimizer.step()
         if scheduler is not None:
             scheduler.step()
-        print('\033[32m train state:'+metric.value())
+        train_metrics = metric.to_dict()
         metric_value= evaluate(model, data_loader_val, device, metrics, class_criterion, loss_func, loss_param)
+        improved_metrics = []
         for m in metrics:
             if metric_value[m] > best_metric[m]:
                 best_metric[m] = metric_value[m]
+                improved_metrics.append(m)
                 save_state(output_dir, model, finetune_optimizer,epoch, metric=m, state='best')
+        logger.log_epoch(epoch + 1, finetune_epochs, get_current_lr(finetune_optimizer), train_metrics, metric_value, best_metric, improved_metrics, stage="finetune")
 
         '''value_now = metric_value[metric_choose]
         if value_now <= value_previous:
@@ -145,9 +160,7 @@ def train(model, dataset_pretrain,dataset_train, dataset_val, dataset_test, devi
         metric_value = sub_evaluate(model, data_loader_test, test_sub_label_loader, device, metrics, class_criterion, loss_func, loss_param)
     else:
         metric_value = evaluate(model, data_loader_test, device, metrics, class_criterion, loss_func, loss_param)
-    for m in metrics:
-        print(f'best_val_{m}: {best_metric[m]:.2f}')
-        print(f'best_test_{m}: {metric_value[m]:.2f}')
+    logger.log_final(metric_value, best_metric, metrics)
 
     return metric_value
 
@@ -172,8 +185,7 @@ def pretrain_evaluate(model, data_loader, device,  criterion, loss_func, loss_pa
         total_loss = loss_eeg + loss_bio        
         lossmetric.update(total_loss.item())
 
-    print('\033[34m eval state:' + lossmetric.value())
-    return lossmetric.avgloss
+    return lossmetric.to_dict()
 @torch.no_grad()
 def evaluate(model, data_loader, device, metrics, criterion, loss_func, loss_param):
     model.eval()
@@ -192,8 +204,7 @@ def evaluate(model, data_loader, device, metrics, criterion, loss_func, loss_par
         loss = criterion(prediction, labels) + (0 if loss_func is None else loss_func(loss_param))
         metric.update(torch.argmax(prediction, dim=1), labels, loss.item())
 
-    print('\033[34m eval state:' + metric.value())
-    return metric.values
+    return metric.to_dict()
 
 @torch.no_grad()
 def sub_evaluate(model, data_loader, sub_labels, device, metrics, criterion, loss_func, loss_param):
@@ -215,5 +226,4 @@ def sub_evaluate(model, data_loader, sub_labels, device, metrics, criterion, los
 
         metric.update(torch.argmax(prediction, dim =1),labels, sub_label, loss.item())
     
-    print('\033[34m eval state:' + metric.value())
-    return metric.values
+    return metric.to_dict()

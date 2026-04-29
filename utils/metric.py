@@ -21,6 +21,16 @@ class Metric:
         # calculate the accuracy
         return self.values['acc']
 
+    def _normalize_targets(self):
+        if len(self.targets) == 0:
+            return True
+        if type(self.targets[0]) is list:
+            try:
+                self.targets = [self.targets[i].index(1) for i in range(len(self.targets))]
+            except ValueError:
+                return False
+        return True
+
     def update(self, outputs, targets, loss=None):
         # append one batch outputs and targets to all outputs and targets
         if torch.is_tensor(outputs):
@@ -51,12 +61,20 @@ class Metric:
         # calculate the micro f1-score
         return self.values['ck']
     def value(self):
-        # 　if one hot code, then transform to ordinary label
-        if type(self.targets[0]) is list:
-            try:
-                self.targets = [self.targets[i].index(1) for i in range(len(self.targets))]
-            except ValueError:
-                return "unavailable"
+        metric_values = self.to_dict()
+        if len(self.targets) != 0 and len(metric_values) == 0:
+            return "unavailable"
+        out = ""
+        for m in self.metrics:
+            if m in metric_values:
+                out += f"{m}: {metric_values[m]:.3f}   "
+        if "loss" in metric_values:
+            return out + f"loss: {metric_values['loss']:.4f}"
+        return out
+
+    def to_dict(self):
+        if not self._normalize_targets():
+            return {}
         func = {
             'acc': self.accuracy,
             'macro-f1': self.macro_f1_score,
@@ -64,14 +82,19 @@ class Metric:
             'ck': self.ck_coe,
             'weighted-f1': self.weighted_f1_score,
         }
-        out = ""
-        for m in self.metrics:
-            out += f"{m}: {func[m]():.3f}   "
+        output = {}
+        if len(self.targets) != 0:
+            for m in self.metrics:
+                if m in func:
+                    output[m] = func[m]()
+                    std_key = m + "_std"
+                    if std_key in self.values:
+                        output[std_key] = self.values[std_key]
         if len(self.losses) != 0:
-            return out + f"loss: {sum(self.losses)/len(self.losses):.4f}"
-        else:
-            return out
-            
+            output['loss'] = sum(self.losses)/len(self.losses)
+        return output
+
+
 class SubMetric(Metric):
     def __init__(self,metrics):
         super().__init__(metrics=metrics)
