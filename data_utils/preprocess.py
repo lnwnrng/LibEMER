@@ -698,6 +698,8 @@ def normalize(train_data, val_data, test_data=None, dim="sample", method="z-scor
             all_data = all_data.reshape(data_shape[0], data_shape[1] * data_shape[2])
         elif len(data_shape) == 4:
             all_data = all_data.reshape(data_shape[0], data_shape[1] * data_shape[2] * data_shape[3])
+        elif len(data_shape) == 5:
+            all_data = all_data.reshape(data_shape[0], data_shape[1] * data_shape[2] * data_shape[3] * data_shape[4])
         scaled_data = None
         if method == "z-score":
             scaler  = StandardScaler()
@@ -709,6 +711,8 @@ def normalize(train_data, val_data, test_data=None, dim="sample", method="z-scor
             scaled_data = scaled_data.reshape(data_shape[0], data_shape[1], data_shape[2])
         elif len(data_shape) == 4:
             scaled_data = scaled_data.reshape(data_shape[0], data_shape[1], data_shape[2], data_shape[3])
+        elif len(data_shape) == 5:
+            scaled_data = scaled_data.reshape(data_shape[0], data_shape[1], data_shape[2], data_shape[3], data_shape[4])
         if test_data is not None:
             if len(test_data.shape) == 3:
                 test_data_reshaped = test_data.reshape(test_data.shape[0], test_data.shape[1] * test_data.shape[2])
@@ -716,6 +720,11 @@ def normalize(train_data, val_data, test_data=None, dim="sample", method="z-scor
             elif len(test_data.shape) == 4:
                 test_data_reshaped = test_data.reshape(test_data.shape[0],
                                                        test_data.shape[1] * test_data.shape[2] * test_data.shape[3])
+                scaled_test_data = scaler.transform(test_data_reshaped)
+            elif len(test_data.shape) == 5:
+                test_data_reshaped = test_data.reshape(test_data.shape[0],
+                                                       test_data.shape[1] * test_data.shape[2] *
+                                                       test_data.shape[3] * test_data.shape[4])
                 scaled_test_data = scaler.transform(test_data_reshaped)
             elif len(test_data.shape) == 2:
                 scaled_test_data = scaler.transform(test_data)
@@ -725,6 +734,9 @@ def normalize(train_data, val_data, test_data=None, dim="sample", method="z-scor
             elif len(test_data.shape) == 4:
                 scaled_test_data = scaled_test_data.reshape(test_data.shape[0], test_data.shape[1], test_data.shape[2],
                                                             test_data.shape[3])
+            elif len(test_data.shape) == 5:
+                scaled_test_data = scaled_test_data.reshape(test_data.shape[0], test_data.shape[1], test_data.shape[2],
+                                                            test_data.shape[3], test_data.shape[4])
         return scaled_data[:len(train_data)], scaled_data[len(train_data):], scaled_test_data
     if dim == "electrode":
         # data shape -> (sample, channel, band)
