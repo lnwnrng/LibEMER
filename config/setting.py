@@ -378,6 +378,70 @@ def deap_sub_dependent_10fold_setting(args):
                    normalize=args.normalize, cross_trail=args.cross_trail, split_type='kfold', fold_num=10, pr=args.pr, sr=args.sr, bounds=args.bounds,
                    onehot=args.onehot, label_used=args.label_used)
 
+def seediv_sub_dependent_train_val_test_setting(args):
+    if not args.dataset.startswith('seediv'):
+        print('not using SEEDIV dataset, please check your setting')
+        exit(1)
+    print("Using SEEDIV subject dependent train val test experiment mode,\n"
+          "For each subject, sessions 1,2,3 are used, data is split: "
+          "60% training, 20% validation, 20% test per subject")
+    return Setting(dataset=args.dataset, dataset_path=args.dataset_path, pass_band=[args.low_pass, args.high_pass],
+                   extract_bands=None, time_window=args.time_window, overlap=args.overlap,
+                   sample_length=args.sample_length, stride=args.stride, bio_length=args.bio_length,
+                   bio_stride=args.bio_stride, seed=args.seed, feature_type=args.feature_type,
+                   only_seg=args.only_seg, experiment_mode="sub_dependent", normalize=args.normalize,
+                   split_type='train_val_test', test_size=0.2, val_size=0.2, sessions=[1, 2, 3], pr=args.pr,
+                   sr=args.sr, onehot=args.onehot, label_used=args.label_used)
+
+def seediv_sub_independent_train_val_test_setting(args):
+    if not args.dataset.startswith('seediv'):
+        print('not using SEEDIV dataset, please check your setting')
+        exit(1)
+    print("Using SEEDIV subject independent train val test experiment mode,\n"
+          "10 random subjects as training, 3 random subjects as validation, "
+          "3 random subjects as test")
+    return Setting(dataset=args.dataset, dataset_path=args.dataset_path, pass_band=[args.low_pass, args.high_pass],
+                   extract_bands=None, time_window=args.time_window, overlap=args.overlap,
+                   sample_length=args.sample_length, stride=args.stride, bio_length=args.bio_length,
+                   bio_stride=args.bio_stride, seed=args.seed, feature_type=args.feature_type,
+                   only_seg=args.only_seg, experiment_mode="sub_independent", normalize=args.normalize,
+                   split_type='train_val_test', test_size=0.2, val_size=0.2,
+                   sessions=[1, 2, 3] if args.sessions is None else args.sessions,
+                   pr=args.pr, sr=args.sr, onehot=args.onehot, label_used=args.label_used)
+
+def seediv_multimodal_sub_dependent_train_val_test_setting(args):
+    if not args.dataset.startswith('seediv'):
+        print('not using SEEDIV dataset, please check your setting')
+        exit(1)
+    print("Using SEEDIV multimodal subject dependent train val test experiment mode,\n"
+          "For each subject, sessions 1,2,3 are used, data is split: "
+          "60% training, 20% validation, 20% test per subject")
+    return Setting(dataset=args.dataset, use_multimodal=args.use_multimodal, dataset_path=args.dataset_path,
+                   pass_band=[args.low_pass, args.high_pass], extract_bands=None, time_window=args.time_window,
+                   overlap=args.overlap, TnF=args.TnF, sample_length=args.sample_length, stride=args.stride,
+                   bio_length=args.bio_length, bio_stride=args.bio_stride, seed=args.seed,
+                   feature_type=args.feature_type, only_seg=args.only_seg, extract_bio=args.extract_bio,
+                   experiment_mode="sub_dependent", normalize=args.normalize,
+                   split_type='train_val_test', test_size=0.2, val_size=0.2, sessions=[1, 2, 3],
+                   pr=args.pr, sr=args.sr, onehot=args.onehot, label_used=args.label_used)
+
+def seediv_multimodal_sub_independent_train_val_test_setting(args):
+    if not args.dataset.startswith('seediv'):
+        print('not using SEEDIV dataset, please check your setting')
+        exit(1)
+    print("Using SEEDIV multimodal subject independent train val test experiment mode,\n"
+          "10 random subjects as training, 3 random subjects as validation, "
+          "3 random subjects as test")
+    return Setting(dataset=args.dataset, use_multimodal=args.use_multimodal, dataset_path=args.dataset_path,
+                   pass_band=[args.low_pass, args.high_pass], extract_bands=None, time_window=args.time_window,
+                   overlap=args.overlap, TnF=args.TnF, sample_length=args.sample_length, stride=args.stride,
+                   bio_length=args.bio_length, bio_stride=args.bio_stride, seed=args.seed,
+                   feature_type=args.feature_type, only_seg=args.only_seg, extract_bio=args.extract_bio,
+                   experiment_mode="sub_independent", normalize=args.normalize,
+                   split_type='train_val_test', test_size=0.2, val_size=0.2,
+                   sessions=[1, 2, 3] if args.sessions is None else args.sessions,
+                   pr=args.pr, sr=args.sr, onehot=args.onehot, label_used=args.label_used)
+
 preset_setting = {
     "seed_sub_dependent_train_val_test_setting": seed_sub_dependent_train_val_test_setting,
     "seed_sub_independent_train_val_test_setting": seed_sub_independent_train_val_test_setting,
@@ -400,6 +464,11 @@ preset_setting = {
     "seedv_multimodal_sub_independent_train_val_test_setting": seedv_multimodal_sub_independent_train_val_test_setting,
     "deap_multimodal_sub_dependent_train_val_test_setting": deap_multimodal_sub_dependent_train_val_test_setting,
     "deap_multimodal_sub_independent_train_val_test_setting": deap_multimodal_sub_independent_train_val_test_setting,
+    # *******************************************************************************************
+    "seediv_sub_dependent_train_val_test_setting": seediv_sub_dependent_train_val_test_setting,
+    "seediv_sub_independent_train_val_test_setting": seediv_sub_independent_train_val_test_setting,
+    "seediv_multimodal_sub_dependent_train_val_test_setting": seediv_multimodal_sub_dependent_train_val_test_setting,
+    "seediv_multimodal_sub_independent_train_val_test_setting": seediv_multimodal_sub_independent_train_val_test_setting,
 
     None: set_setting_by_args
 }

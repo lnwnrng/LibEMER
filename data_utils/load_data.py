@@ -38,7 +38,8 @@ def get_data(setting=None):
         func = {
             'deap':read_deap_preprocessed_multimodal,
             'seed': read_seed_multimodal,
-            'seedv': read_seedv_multimodal_feature
+            'seedv': read_seedv_multimodal_feature,
+            'seediv': read_seediv_multimodal_feature
         }
         if setting.dataset.startswith('seed') and not setting.dataset.startswith(('seediv', 'seedv')):
             eeg_data, bio_data, eeg_baseline, bio_baseline, label, sample_rate, eeg_channels, bio_channels = func['seed'](setting.dataset_path)
@@ -58,6 +59,8 @@ def get_data(setting=None):
             return all_eeg, all_bio, all_label,eeg_channels, bio_channels, eeg_feature_dim, bio_feature_dim, num_classes
         elif setting.dataset.startswith('seedv'):
             eeg_data, bio_data, eeg_baseline, bio_baseline, label, sample_rate, eeg_channels, bio_channels = func['seedv'](setting.dataset_path)
+        elif setting.dataset.startswith('seediv'):
+            eeg_data, bio_data, eeg_baseline, bio_baseline, label, sample_rate, eeg_channels, bio_channels = func['seediv'](setting.dataset_path)
         else:
             eeg_data, bio_data, eeg_baseline, bio_baseline, label, sample_rate, eeg_channels, bio_channels = func[setting.dataset](setting.dataset_path)
             
@@ -369,7 +372,7 @@ def parallel_read_seedIV_raw(dir_path, file):
     trail_datas = []
     for i in range(24):
         trail_data = subject_data[keys[i]]
-        trail_datas.append(trail_data[:,1:])
+        trail_datas.append(trail_data)
     return trail_datas
 
 
@@ -436,6 +439,66 @@ def parallel_read_seedIV_feature(fi, dir_path, label, file):
         trail_data = list(np.array(subject_data[keys[i*4+fi]].transpose((1,0,2))))
         trail_datas.append(trail_data)
     return trail_datas
+
+
+def read_seediv_multimodal_feature(dir_path, feature_type='de_lds'):
+    eeg_path = dir_path + '/eeg_feature_smooth'
+    eye_path = dir_path + '/eye_feature_smooth'
+    eeg_files = [['1_20160518.mat', '2_20150915.mat', '3_20150919.mat',
+                  '4_20151111.mat', '5_20160406.mat', '6_20150507.mat',
+                  '7_20150715.mat', '8_20151103.mat', '9_20151028.mat',
+                  '10_20151014.mat', '11_20150916.mat', '12_20150725.mat',
+                  '13_20151115.mat', '14_20151205.mat', '15_20150508.mat'],
+                 ['1_20161125.mat', '2_20150920.mat', '3_20151018.mat',
+                  '4_20151118.mat', '5_20160413.mat', '6_20150511.mat',
+                  '7_20150717.mat', '8_20151110.mat', '9_20151119.mat',
+                  '10_20151021.mat', '11_20150921.mat', '12_20150804.mat',
+                  '13_20151125.mat', '14_20151208.mat', '15_20150514.mat'],
+                 ['1_20161126.mat', '2_20151012.mat', '3_20151101.mat',
+                  '4_20151123.mat', '5_20160420.mat', '6_20150512.mat',
+                  '7_20150721.mat', '8_20151117.mat', '9_20151209.mat',
+                  '10_20151023.mat', '11_20151011.mat', '12_20150807.mat',
+                  '13_20161130.mat', '14_20151215.mat', '15_20150527.mat']]
+
+    feature_index = {
+        "de_movingAve": 0, "de_lds": 1, "psd_movingAve": 2, "psd_lds": 3
+    }
+    fi = feature_index.get(feature_type, 1)
+
+    ses_label1 = [1, 2, 3, 0, 2, 0, 0, 1, 0, 1, 2, 1, 1, 1, 2, 3, 2, 2, 3, 3, 0, 3, 0, 3]
+    ses_label2 = [2, 1, 3, 0, 0, 2, 0, 2, 3, 3, 2, 3, 2, 0, 1, 1, 2, 1, 0, 3, 0, 1, 3, 1]
+    ses_label3 = [1, 2, 2, 1, 3, 3, 3, 1, 1, 2, 1, 0, 2, 3, 3, 0, 2, 3, 0, 0, 2, 0, 1, 0]
+    session_labels = [ses_label1, ses_label2, ses_label3]
+
+    all_eeg = [[] for _ in range(3)]
+    all_eye = [[] for _ in range(3)]
+    all_label = [[] for _ in range(3)]
+
+    for ses_id, session_files in enumerate(eeg_files):
+        for sub_id, eeg_file in enumerate(session_files):
+            eeg_data = loadmat(os.path.join(eeg_path, str(ses_id + 1), eeg_file))
+            eye_data = loadmat(os.path.join(eye_path, str(ses_id + 1), eeg_file))
+            eeg_keys = sorted([k for k in eeg_data.keys() if not k.startswith('__')],
+                              key=lambda x: int(''.join(c for c in x if c.isdigit())))
+            eye_keys = sorted([k for k in eye_data.keys() if not k.startswith('__')],
+                              key=lambda x: int(''.join(c for c in x if c.isdigit())))
+
+            sub_eeg = []
+            sub_eye = []
+            sub_label = []
+            for t_i in range(24):
+                eeg_trial = np.array(eeg_data[eeg_keys[t_i * 4 + fi]]).transpose((1, 0, 2))
+                eye_trial = np.array(eye_data[eye_keys[t_i]]).T
+                eye_trial = eye_trial.reshape(eye_trial.shape[0], 1, eye_trial.shape[1])
+                sub_eeg.append(eeg_trial)
+                sub_eye.append(eye_trial)
+                sub_label.append(session_labels[ses_id][t_i])
+
+            all_eeg[ses_id].append(sub_eeg)
+            all_eye[ses_id].append(sub_eye)
+            all_label[ses_id].append(sub_label)
+
+    return all_eeg, all_eye, None, None, all_label, 200, 62, 31
 
 
 def read_seedv_multimodal_feature(dir_path, feature_type = 'de_lds'):
