@@ -27,6 +27,8 @@ import torch.nn as nn
 
 
 def flatten_single_step_sequence(data, feature_name):
+    if data.ndim == 3:
+        return data
     if data.ndim == 4:
         return data
     if data.ndim == 5 and data.shape[1] == 1:
