@@ -57,7 +57,7 @@ training_history.csv
 
 # Notebook checkpoints
 .ipynb_checkpoints/
-.CLAUDE.md
+CLAUDE.md
 
 config/__pycache__/
 scripts/
