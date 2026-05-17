@@ -498,7 +498,7 @@ def read_seediv_multimodal_feature(dir_path, feature_type='de_lds'):
             all_eye[ses_id].append(sub_eye)
             all_label[ses_id].append(sub_label)
 
-    return all_eeg, all_eye, None, None, all_label, 200, 62, 31
+    return all_eeg, all_eye, None, None, all_label, 200, 62, 1
 
 
 def read_seedv_multimodal_feature(dir_path, feature_type = 'de_lds'):
