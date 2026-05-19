@@ -50,7 +50,35 @@ All experiments: seed=2026, subject-independent, multimodal, session 1 only. Met
 | CFDA_CSF | 0.3619 | 0.2258 | 0.0535 | 0.0802 |
 | G2G | — | — | — | — |
 
-*G2G incompatible with SEED-IV (hardcoded eye feature indices).*
+*G2G incompatible with SEED-IV (hardcoded eye feature indices). HetEmotionNet excluded (DEAP-only, too slow).*
+
+### DEAP Valence (2-class, binary)
+
+| Model | Acc | F1 | Acc_std | F1_std |
+|-------|-----|------|---------|--------|
+| DCCA | 0.5122 | 0.4157 | 0.1100 | 0.0815 |
+| DCCA_AM | 0.4978 | 0.4335 | 0.1542 | 0.1144 |
+| BimodalLSTM | 0.5083 | 0.3948 | 0.1116 | 0.0485 |
+| CRNN | 0.4319 | 0.3877 | 0.0370 | 0.0377 |
+| BDDAE | 0.5519 | 0.4018 | 0.0960 | 0.0411 |
+| MCAF | 0.4708 | 0.3904 | 0.1411 | 0.1118 |
+| CMCM | 0.5029 | **0.4838** | 0.0657 | 0.0686 |
+| CFDA_CSF | 0.4769 | 0.4221 | 0.0733 | 0.0884 |
+| G2G | **0.5726** | 0.4545 | 0.0952 | 0.0658 |
+
+### DEAP Arousal (2-class, binary)
+
+| Model | Acc | F1 | Acc_std | F1_std |
+|-------|-----|------|---------|--------|
+| DCCA | 0.5377 | 0.3989 | 0.1839 | 0.1362 |
+| DCCA_AM | 0.3787 | 0.3268 | 0.1652 | 0.1213 |
+| BimodalLSTM | **0.6130** | **0.4955** | 0.1322 | 0.1459 |
+| CRNN | 0.4538 | 0.3330 | 0.2082 | 0.0963 |
+| BDDAE | 0.5575 | 0.3576 | 0.2102 | 0.0978 |
+| MCAF | 0.4925 | 0.3671 | 0.2120 | 0.1043 |
+| CMCM | 0.4742 | 0.4015 | 0.1549 | 0.1260 |
+| CFDA_CSF | 0.4953 | 0.4174 | 0.2422 | 0.1974 |
+| G2G | 0.5299 | 0.4098 | 0.0903 | 0.0454 |
 
 ## Running Experiments
 
