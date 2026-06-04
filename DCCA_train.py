@@ -130,8 +130,8 @@ def main(args):
                     val_bio = test_bio
                     val_label = test_label
 
-                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="minmax")
-                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="minmax")
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
 
                 input_size1 =  train_eeg.shape[1]*train_eeg.shape[2]
                 input_size2 = train_bio.shape[1] * train_bio.shape[2]
@@ -227,6 +227,9 @@ def main(args):
                     val_eeg = test_eeg
                     val_bio = test_bio
                     val_label = test_label
+
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
 
                 input_size1 =  train_eeg.shape[1] * train_eeg.shape[2]
                 input_size2 = train_bio.shape[1]*train_bio.shape[2]

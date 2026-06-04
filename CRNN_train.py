@@ -1,7 +1,7 @@
 from config.setting import set_setting_by_args, preset_setting
 
 from data_utils.load_data import get_data
-from data_utils.preprocess import preprocess, label_process, multimodal_preprocess, map_channels_to_grid
+from data_utils.preprocess import preprocess, label_process, multimodal_preprocess, map_channels_to_grid, normalize
 from data_utils.split import get_split_index, index_to_data_multimodal, merge_to_part_multimodal
 from data_utils.constants.seed import SEED_CHANNEL_NAME, SEED_2D_GRID_LOC
 from data_utils.constants.deap import DEAP_CHANNEL_NAME, DEAP_2D_GRID_LOC
@@ -114,6 +114,9 @@ def main(args):
                     val_eeg = test_eeg
                     val_bio = test_bio
                     val_label = test_label
+
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
                 
                 if setting.dataset.startswith(('seed','mped')):
                     grid_size = (9,9)
@@ -226,6 +229,9 @@ def main(args):
                     val_eeg = test_eeg
                     val_bio = test_bio
                     val_label = test_label
+
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
 
                 if setting.dataset.startswith(('seed','mped')):
                     grid_size = (9,9)

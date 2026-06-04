@@ -701,12 +701,15 @@ def normalize(train_data, val_data, test_data=None, dim="sample", method="z-scor
         elif len(data_shape) == 5:
             all_data = all_data.reshape(data_shape[0], data_shape[1] * data_shape[2] * data_shape[3] * data_shape[4])
         scaled_data = None
+        train_len = len(train_data)
         if method == "z-score":
             scaler  = StandardScaler()
-            scaled_data = scaler.fit_transform(all_data)
+            scaler.fit(all_data[:train_len])
+            scaled_data = scaler.transform(all_data)
         if method == "minmax":
             scaler = MinMaxScaler()
-            scaled_data = scaler.fit_transform(all_data)
+            scaler.fit(all_data[:train_len])
+            scaled_data = scaler.transform(all_data)
         if len(data_shape) == 3:
             scaled_data = scaled_data.reshape(data_shape[0], data_shape[1], data_shape[2])
         elif len(data_shape) == 4:

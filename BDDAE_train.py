@@ -123,8 +123,8 @@ def main(args):
                     val_bio = test_bio
                     val_label = test_label
 
-                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="minmax")
-                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="minmax")
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
 
                 model = Model['BDDAE'](eeg_dim, bio_dim, h_eeg_dim,h_bio_dim,joint_dim,eeg_dropout_rate,bio_dropout_rate, num_classes)
                 pretrain_dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio))
@@ -231,8 +231,8 @@ def main(args):
                     val_bio = test_bio
                     val_label = test_label
 
-                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="minmax")
-                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="minmax")
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
 
                 model = Model['BDDAE'](eeg_dim, bio_dim, h_eeg_dim,h_bio_dim,joint_dim,eeg_dropout_rate,bio_dropout_rate, num_classes)
                 pretrain_dataset_train = torch.utils.data.TensorDataset(torch.Tensor(train_eeg), torch.Tensor(train_bio))

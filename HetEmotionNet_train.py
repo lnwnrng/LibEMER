@@ -101,6 +101,9 @@ def main(args):
                 val_bio_data = test_bio_data
                 val_label = test_label
 
+            train_eeg_data, val_eeg_data, test_eeg_data = normalize(train_eeg_data, val_eeg_data, test_eeg_data, dim="sample", method="z-score")
+            train_bio_data, val_bio_data, test_bio_data = normalize(train_bio_data, val_bio_data, test_bio_data, dim="sample", method="z-score")
+
             train_eeg_data = flatten_single_step_sequence(train_eeg_data, "train_eeg_data")
             val_eeg_data = flatten_single_step_sequence(val_eeg_data, "val_eeg_data")
             test_eeg_data = flatten_single_step_sequence(test_eeg_data, "test_eeg_data")

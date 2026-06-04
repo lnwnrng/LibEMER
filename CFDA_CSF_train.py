@@ -1,7 +1,7 @@
 from config.setting import set_setting_by_args, preset_setting
 
 from data_utils.load_data import get_data
-from data_utils.preprocess import preprocess, label_process, multimodal_preprocess
+from data_utils.preprocess import preprocess, label_process, multimodal_preprocess, normalize
 from data_utils.split import get_split_index, index_to_data_multimodal, merge_to_part_multimodal
 
 from utils.args import get_args_parser
@@ -120,6 +120,9 @@ def main(args):
                     val_eeg = test_eeg
                     val_bio = test_bio
                     val_label = test_label
+
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
                 
                 eeg_input_dim = eeg_channels * eeg_feature_dim
                 bio_input_dim = bio_channels * bio_feature_dim
@@ -217,6 +220,9 @@ def main(args):
                     val_eeg = test_eeg
                     val_bio = test_bio
                     val_label = test_label
+
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
 
                 eeg_input_dim =  eeg_channels * eeg_feature_dim
                 bio_input_dim = bio_channels *6

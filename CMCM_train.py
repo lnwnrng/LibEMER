@@ -1,7 +1,7 @@
 from config.setting import set_setting_by_args, preset_setting
 
 from data_utils.load_data import get_data
-from data_utils.preprocess import preprocess, label_process, multimodal_preprocess
+from data_utils.preprocess import preprocess, label_process, multimodal_preprocess, normalize
 from data_utils.split import get_split_index, index_to_data_multimodal, merge_to_part_multimodal
 
 from utils.args import get_args_parser
@@ -123,6 +123,9 @@ def main(args):
                     val_bio = test_bio
                     val_label = test_label
 
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
+
                 train_eeg = train_eeg.reshape(train_eeg.shape[0], train_eeg.shape[1], -1)
                 val_eeg = val_eeg.reshape(val_eeg.shape[0], val_eeg.shape[1], -1)
                 test_eeg = test_eeg.reshape(test_eeg.shape[0], test_eeg.shape[1], -1)
@@ -227,6 +230,9 @@ def main(args):
                     val_eeg = test_eeg
                     val_bio = test_bio
                     val_label = test_label
+
+                train_eeg, val_eeg, test_eeg = normalize(train_eeg, val_eeg, test_eeg, dim="sample", method="z-score")
+                train_bio, val_bio, test_bio = normalize(train_bio, val_bio, test_bio, dim="sample", method="z-score")
 
                 train_eeg = train_eeg.reshape(train_eeg.shape[0], train_eeg.shape[1], -1)
                 val_eeg = val_eeg.reshape(val_eeg.shape[0], val_eeg.shape[1], -1)
